@@ -21,7 +21,8 @@ Currently only supports the sources MangaRock, MangaEden, MangaReader.
 2. Place the file `mangarock.db` in the same directory as the application jar and run it using java
 
 3. After running there should be a file called `output.json` which can be imported into Tachiyomi 
-using the backup restore feature in the settings menu.
+using the backup restore feature in the settings menu. Note: MangaRock or other relevant tachiyomi source extensions must be installed, or else
+the import will fail.
 
 ## TODO
 
