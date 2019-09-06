@@ -33,6 +33,7 @@ import java.nio.file.Paths
 import java.nio.file.StandardOpenOption
 
 fun main() {
+    if (Files.notExists(Paths.get("mangarock.db"))) error("File mangarock.db not found!")
     Database.connect("jdbc:sqlite:file:mangarock.db", driver = "org.sqlite.JDBC")
     transaction {
         SchemaUtils.create(
