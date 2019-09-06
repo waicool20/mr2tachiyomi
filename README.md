@@ -9,10 +9,14 @@ Currently only supports the sources MangaRock, MangaEden, MangaReader.
 ## Usage
 
 1. Find and copy the mangarock.db file on your android device
-    - For rooted devices it is as simple as navigating to `/data/data/com.notabasement.mangarock.android.lotus/databases` and
+    - For rooted devices it is as simple as navigating to `root:/data/data/com.notabasement.mangarock.android.lotus/databases` and
     copying the `mangarock.db` to your pc
     
-    - TODO: Add steps for non-rooted devices
+    - For non-rooted devices, the method of obtaining the `mangarock.db` will be more convoluted.
+        1. Backup MangaRock using [Helium Backup](https://play.google.com/store/apps/details?id=com.koushikdutta.backup&hl=en)
+        2. Copy the file `sdcard:/carbon/com.notabasement.mangarock.android.lotus/com.notabasement.mangarock.android.lotus.ab` to your pc
+        3. [Use this tool to convert it into a regular tar archive file](https://github.com/floe/helium_ab2tar)
+        4. Open the archive and navigate to `/apps/com.notabasement.mangarock.android.lotus/db/` and look for `mangarock.db`
 
 2. Place the file `mangarock.db` in the same directory as the application jar and run it using java
 
@@ -24,3 +28,4 @@ using the backup restore feature in the settings menu.
 - CSV output 
 - GUI?
 - Other sources that MangaRock uses
+- Elaborate steps
