@@ -1,0 +1,73 @@
+buildscript {
+    ext.kotlin_version = '1.3.50'
+    ext.kotlin_coroutines_version = '1.3.0'
+    ext.jackson_version = '2.9.9'
+
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+    }
+}
+
+plugins {
+    id 'com.github.johnrengelman.shadow' version '5.0.0'
+}
+
+group 'com.waicool20'
+version '1.0-SNAPSHOT'
+
+apply plugin: 'java'
+apply plugin: 'kotlin'
+
+defaultTasks 'build'
+build.finalizedBy(tasks.shadowJar)
+jar.enabled = false
+
+repositories {
+    mavenCentral()
+    maven { url  "https://dl.bintray.com/kotlin/exposed" }
+}
+
+dependencies {
+    compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
+    compile "org.jetbrains.kotlin:kotlin-reflect:$kotlin_version"
+    compile "org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlin_coroutines_version"
+    compile group: 'com.fasterxml.jackson.core', name: 'jackson-core', version: jackson_version
+    compile group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: jackson_version
+    compile group: 'com.fasterxml.jackson.core', name: 'jackson-annotations', version: jackson_version
+    compile group: 'com.fasterxml.jackson.module', name: 'jackson-module-kotlin', version: jackson_version
+    compile group: 'com.fasterxml.jackson.datatype', name: 'jackson-datatype-jsr310', version: jackson_version
+
+    compile 'org.jetbrains.exposed:exposed:0.17.3'
+    compile group: 'org.xerial', name: 'sqlite-jdbc', version: '3.28.0'
+}
+
+shadowJar {
+    classifier = null
+    version = null
+}
+
+jar {
+    manifest {
+        attributes([
+                'Main-Class': 'com.waicool20.' // TODO
+        ])
+    }
+}
+
+compileKotlin.kotlinOptions {
+    jvmTarget = "1.8"
+    freeCompilerArgs += [
+            "-Xuse-experimental=kotlinx.coroutines.FlowPreview",
+            "-Xuse-experimental=kotlinx.coroutines.ExperimentalCoroutinesApi",
+            "-Xuse-experimental=kotlinx.coroutines.ObsoleteCoroutinesApi"]
+}
+compileTestKotlin.kotlinOptions {
+    jvmTarget = "1.8"
+    freeCompilerArgs += [
+            "-Xuse-experimental=kotlinx.coroutines.FlowPreview",
+            "-Xuse-experimental=kotlinx.coroutines.ExperimentalCoroutinesApi",
+            "-Xuse-experimental=kotlinx.coroutines.ObsoleteCoroutinesApi"]
+}
