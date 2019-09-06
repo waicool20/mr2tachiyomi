@@ -71,7 +71,7 @@ shadowJar {
 jar {
     manifest {
         attributes([
-                'Main-Class': 'com.waicool20.' // TODO
+                'Main-Class': 'com.waicool20.mr2tachiyomi.MR2TachiyomiKt'
         ])
     }
 }
