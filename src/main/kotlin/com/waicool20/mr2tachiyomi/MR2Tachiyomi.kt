@@ -25,16 +25,47 @@ import com.waicool20.mr2tachiyomi.models.database.*
 import com.waicool20.mr2tachiyomi.models.json.TachiyomiBackup
 import com.waicool20.mr2tachiyomi.models.json.TachiyomiChapter
 import com.waicool20.mr2tachiyomi.models.json.TachiyomiManga
-import org.jetbrains.exposed.sql.Database
-import org.jetbrains.exposed.sql.SchemaUtils
-import org.jetbrains.exposed.sql.transactions.transaction
 import java.nio.file.Files
 import java.nio.file.Paths
 import java.nio.file.StandardOpenOption
+import org.apache.commons.cli.DefaultParser
+import org.apache.commons.cli.HelpFormatter
+import org.apache.commons.cli.Options
+import org.apache.commons.cli.ParseException
+import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.SchemaUtils
+import org.jetbrains.exposed.sql.transactions.transaction
 
-fun main() {
-    if (Files.notExists(Paths.get("mangarock.db"))) error("File mangarock.db not found!")
-    Database.connect("jdbc:sqlite:file:mangarock.db", driver = "org.sqlite.JDBC")
+fun main(args: Array<String>) {
+    var input = Paths.get("mangarock.db")
+    var output = Paths.get("output.json")
+
+    val options = Options()
+    options.addOption("i", "input", true, "input file to convert")
+    options.addOption("o", "output", true, "output file")
+    options.addOption("h", "help", false, "print help message")
+
+    val parser = DefaultParser()
+    try {
+        val command = parser.parse(options, args)
+        if (command.hasOption('h')) {
+            printHelp(options)
+            return
+        }
+        if (command.hasOption('i')) {
+            input = Paths.get(command.getOptionValue('i'))
+        }
+        if (command.hasOption('o')) {
+            output = Paths.get(command.getOptionValue('o'))
+        }
+    } catch (e: ParseException) {
+        println("Failed to parse args: " + e.message)
+        printHelp(options)
+        System.exit(1)
+    }
+
+    if (Files.notExists(input)) error(String.format("File %s not found!", input))
+    Database.connect("jdbc:sqlite:file:" + input.toString(), driver = "org.sqlite.JDBC")
     transaction {
         SchemaUtils.create(
             Favorites,
@@ -70,11 +101,16 @@ fun main() {
             )
         }.let {
             Files.write(
-                Paths.get("output.json"),
+                output,
                 it.toByteArray(),
                 StandardOpenOption.CREATE,
                 StandardOpenOption.TRUNCATE_EXISTING
             )
         }
     }
+}
+
+fun printHelp(options: Options) {
+    val formatter = HelpFormatter()
+    formatter.printHelp("mr2tachiyomi", options)
 }
