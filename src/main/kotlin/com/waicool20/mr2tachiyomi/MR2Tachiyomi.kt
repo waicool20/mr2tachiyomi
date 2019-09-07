@@ -25,9 +25,6 @@ import com.waicool20.mr2tachiyomi.models.database.*
 import com.waicool20.mr2tachiyomi.models.json.TachiyomiBackup
 import com.waicool20.mr2tachiyomi.models.json.TachiyomiChapter
 import com.waicool20.mr2tachiyomi.models.json.TachiyomiManga
-import java.nio.file.Files
-import java.nio.file.Paths
-import java.nio.file.StandardOpenOption
 import org.apache.commons.cli.DefaultParser
 import org.apache.commons.cli.HelpFormatter
 import org.apache.commons.cli.Options
@@ -35,7 +32,11 @@ import org.apache.commons.cli.ParseException
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.transaction
+import java.lang.Exception
+import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.Paths
+import java.nio.file.StandardOpenOption
 import kotlin.system.exitProcess
 
 private val options = Options().apply {
@@ -62,54 +63,61 @@ fun main(args: Array<String>) {
         printHelp(options)
         exitProcess(1)
     }
-
-    if (Files.notExists(input)) error("File $input not found!")
-    Database.connect("jdbc:sqlite:file:$input", driver = "org.sqlite.JDBC")
-    transaction {
-        SchemaUtils.create(
-            Favorites,
-            MangaChapters,
-            MangaChapterLocals
-        )
-
-        Favorite.all().mapNotNull { fav ->
-            try {
-                TachiyomiManga(
-                    fav.source.getMangaUrl(),
-                    fav.mangaName,
-                    fav.source.TachiyomiId,
-                    chapters = MangaChapter.find { MangaChapters.mangaId eq fav.id.value }
-                        .map {
-                            TachiyomiChapter(
-                                fav.source.getChapterUrl(it),
-                                it.local?.read ?: 0
-                            )
-                        }
-                )
-            } catch (e: Source.UnsupportedSourceException) {
-                println("Could not process manga [${fav.mangaName}]: ${e.message}")
-                null
-            }
-        }.also {
-            println("Processed ${it.size} manga")
-        }.let {
-            jacksonObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(
-                TachiyomiBackup(
-                    it
-                )
-            )
-        }.let {
-            Files.write(
-                output,
-                it.toByteArray(),
-                StandardOpenOption.CREATE,
-                StandardOpenOption.TRUNCATE_EXISTING
-            )
-        }
-    }
+    MR2Tachiyomi.convertToTachiyomiJson(input, output)
 }
 
 fun printHelp(options: Options) {
     val formatter = HelpFormatter()
     formatter.printHelp("mr2tachiyomi", options)
+}
+
+object MR2Tachiyomi {
+    fun convertToTachiyomiJson(input: Path, output: Path): Boolean = try {
+        if (Files.notExists(input)) error("File $input not found!")
+        Database.connect("jdbc:sqlite:file:$input", driver = "org.sqlite.JDBC")
+        transaction {
+            SchemaUtils.create(
+                Favorites,
+                MangaChapters,
+                MangaChapterLocals
+            )
+
+            Favorite.all().mapNotNull { fav ->
+                try {
+                    TachiyomiManga(
+                        fav.source.getMangaUrl(),
+                        fav.mangaName,
+                        fav.source.TachiyomiId,
+                        chapters = MangaChapter.find { MangaChapters.mangaId eq fav.id.value }
+                            .map {
+                                TachiyomiChapter(
+                                    fav.source.getChapterUrl(it),
+                                    it.local?.read ?: 0
+                                )
+                            }
+                    ).also { println("Processed $fav") }
+                } catch (e: Source.UnsupportedSourceException) {
+                    println("Could not process manga ( $fav ): ${e.message}")
+                    null
+                }
+            }.also {
+                println("Processed ${it.size} manga")
+            }.let {
+                jacksonObjectMapper().writerWithDefaultPrettyPrinter()
+                    .writeValueAsString(TachiyomiBackup(it))
+            }.let {
+                Files.write(
+                    output,
+                    it.toByteArray(),
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING
+                )
+            }
+        }
+        true
+    } catch (e: Exception) {
+        println("Could not convert database file to Tachiyomi Json due to unknown exception")
+        e.printStackTrace()
+        false
+    }
 }
