@@ -72,7 +72,12 @@ fun printHelp(options: Options) {
 }
 
 object MR2Tachiyomi {
-    fun convertToTachiyomiJson(input: Path, output: Path): Boolean = try {
+    sealed class Result {
+        class ConversionComplete(val success: List<Favorite>, val failed: List<Favorite>): Result()
+        class FailedWithException(val exception: Exception): Result()
+    }
+
+    fun convertToTachiyomiJson(input: Path, output: Path): Result = try {
         if (Files.notExists(input)) error("File $input not found!")
         Database.connect("jdbc:sqlite:file:$input", driver = "org.sqlite.JDBC")
         transaction {
@@ -82,26 +87,31 @@ object MR2Tachiyomi {
                 MangaChapterLocals
             )
 
-            Favorite.all().mapNotNull { fav ->
+            val (convertible, nonConvertible) = Favorite.all().partition {
                 try {
-                    TachiyomiManga(
-                        fav.source.getMangaUrl(),
-                        fav.mangaName,
-                        fav.source.TachiyomiId,
-                        chapters = MangaChapter.find { MangaChapters.mangaId eq fav.id.value }
-                            .map {
-                                TachiyomiChapter(
-                                    fav.source.getChapterUrl(it),
-                                    it.local?.read ?: 0
-                                )
-                            }
-                    ).also { println("Processed $fav") }
+                    it.source
+                    true
                 } catch (e: Source.UnsupportedSourceException) {
-                    println("Could not process manga ( $fav ): ${e.message}")
-                    null
+                    println("Cannot process manga ( $it ): ${e.message}")
+                    false
                 }
-            }.also {
-                println("Processed ${it.size} manga")
+            }
+
+            println("-----------------")
+
+            convertible.map { fav ->
+                TachiyomiManga(
+                    fav.source.getMangaUrl(),
+                    fav.mangaName,
+                    fav.source.TachiyomiId,
+                    chapters = MangaChapter.find { MangaChapters.mangaId eq fav.id.value }
+                        .map {
+                            TachiyomiChapter(
+                                fav.source.getChapterUrl(it),
+                                it.local?.read ?: 0
+                            )
+                        }
+                ).also { println("Processed $fav") }
             }.let {
                 jacksonObjectMapper().writerWithDefaultPrettyPrinter()
                     .writeValueAsString(TachiyomiBackup(it))
@@ -113,11 +123,13 @@ object MR2Tachiyomi {
                     StandardOpenOption.TRUNCATE_EXISTING
                 )
             }
+            println("-----------------")
+            println("Succesfully processed ${convertible.size} manga; Failed to process ${nonConvertible.size} manga")
+            Result.ConversionComplete(convertible, nonConvertible)
         }
-        true
     } catch (e: Exception) {
         println("Could not convert database file to Tachiyomi Json due to unknown exception")
         e.printStackTrace()
-        false
+        Result.FailedWithException(e)
     }
 }
