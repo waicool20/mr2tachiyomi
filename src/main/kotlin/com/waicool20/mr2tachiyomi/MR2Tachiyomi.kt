@@ -33,6 +33,7 @@ import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.LoggerFactory
+import tornadofx.launch
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -48,6 +49,11 @@ private val options = Options().apply {
 private val logger = LoggerFactory.getLogger("Main")
 
 fun main(args: Array<String>) {
+    if (args.isEmpty()) {
+        launch<UserInterface>(args)
+        exitProcess(0)
+    }
+
     val input: Path
     val output: Path
 

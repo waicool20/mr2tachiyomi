@@ -62,6 +62,9 @@ dependencies {
 
     compile 'org.jetbrains.exposed:exposed:0.17.3'
     compile group: 'org.xerial', name: 'sqlite-jdbc', version: '3.28.0'
+
+    compile group: 'no.tornado', name: 'tornadofx', version: '1.7.19'
+    compile group: 'ch.qos.logback', name: 'logback-classic', version: '1.2.3'
 }
 
 shadowJar {
