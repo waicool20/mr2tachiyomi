@@ -69,7 +69,10 @@ class MainView : View() {
                                 |See logs for more information""".trimMargin()
                         )
                     }
-                    is MR2Tachiyomi.Result.FailedWithException -> TODO()
+                    is MR2Tachiyomi.Result.FailedWithException -> error(
+                        "Conversion failed",
+                        "See logs for more information"
+                    )
                 }
             }
         }
