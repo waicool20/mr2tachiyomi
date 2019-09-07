@@ -35,37 +35,36 @@ import org.apache.commons.cli.ParseException
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.transaction
+import java.nio.file.Path
+import kotlin.system.exitProcess
+
+private val options = Options().apply {
+    addOption("i", "input", true, "input file to convert")
+    addOption("o", "output", true, "output file")
+    addOption("h", "help", false, "print help message")
+}
 
 fun main(args: Array<String>) {
-    var input = Paths.get("mangarock.db")
-    var output = Paths.get("output.json")
+    val input: Path
+    val output: Path
 
-    val options = Options()
-    options.addOption("i", "input", true, "input file to convert")
-    options.addOption("o", "output", true, "output file")
-    options.addOption("h", "help", false, "print help message")
-
-    val parser = DefaultParser()
     try {
-        val command = parser.parse(options, args)
+        val command = DefaultParser().parse(options, args)
         if (command.hasOption('h')) {
             printHelp(options)
             return
         }
-        if (command.hasOption('i')) {
-            input = Paths.get(command.getOptionValue('i'))
-        }
-        if (command.hasOption('o')) {
-            output = Paths.get(command.getOptionValue('o'))
-        }
+
+        input = Paths.get(command.getOptionValue('i') ?: "mangarock.db")
+        output = Paths.get(command.getOptionValue('o') ?: "output.json")
     } catch (e: ParseException) {
         println("Failed to parse args: " + e.message)
         printHelp(options)
-        System.exit(1)
+        exitProcess(1)
     }
 
-    if (Files.notExists(input)) error(String.format("File %s not found!", input))
-    Database.connect("jdbc:sqlite:file:" + input.toString(), driver = "org.sqlite.JDBC")
+    if (Files.notExists(input)) error("File $input not found!")
+    Database.connect("jdbc:sqlite:file:$input", driver = "org.sqlite.JDBC")
     transaction {
         SchemaUtils.create(
             Favorites,
