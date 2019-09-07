@@ -32,7 +32,7 @@ import org.apache.commons.cli.ParseException
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.transaction
-import java.lang.Exception
+import org.slf4j.LoggerFactory
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -44,6 +44,8 @@ private val options = Options().apply {
     addOption("o", "output", true, "output file")
     addOption("h", "help", false, "print help message")
 }
+
+private val logger = LoggerFactory.getLogger("Main")
 
 fun main(args: Array<String>) {
     val input: Path
@@ -59,7 +61,7 @@ fun main(args: Array<String>) {
         input = Paths.get(command.getOptionValue('i') ?: "mangarock.db")
         output = Paths.get(command.getOptionValue('o') ?: "output.json")
     } catch (e: ParseException) {
-        println("Failed to parse args: " + e.message)
+        logger.error("Failed to parse args: " + e.message)
         printHelp(options)
         exitProcess(1)
     }
@@ -72,9 +74,11 @@ fun printHelp(options: Options) {
 }
 
 object MR2Tachiyomi {
+    private val logger = LoggerFactory.getLogger(javaClass)
+
     sealed class Result {
-        class ConversionComplete(val success: List<Favorite>, val failed: List<Favorite>): Result()
-        class FailedWithException(val exception: Exception): Result()
+        class ConversionComplete(val success: List<Favorite>, val failed: List<Favorite>) : Result()
+        class FailedWithException(val exception: Exception) : Result()
     }
 
     fun convertToTachiyomiJson(input: Path, output: Path): Result = try {
@@ -92,12 +96,12 @@ object MR2Tachiyomi {
                     it.source
                     true
                 } catch (e: Source.UnsupportedSourceException) {
-                    println("Cannot process manga ( $it ): ${e.message}")
+                    logger.warn("Cannot process manga ( $it ): ${e.message}")
                     false
                 }
             }
 
-            println("-----------------")
+            logger.info("-----------------")
 
             convertible.map { fav ->
                 TachiyomiManga(
@@ -111,7 +115,7 @@ object MR2Tachiyomi {
                                 it.local?.read ?: 0
                             )
                         }
-                ).also { println("Processed $fav") }
+                ).also { logger.info("Processed $fav") }
             }.let {
                 jacksonObjectMapper().writerWithDefaultPrettyPrinter()
                     .writeValueAsString(TachiyomiBackup(it))
@@ -123,12 +127,12 @@ object MR2Tachiyomi {
                     StandardOpenOption.TRUNCATE_EXISTING
                 )
             }
-            println("-----------------")
-            println("Succesfully processed ${convertible.size} manga; Failed to process ${nonConvertible.size} manga")
+            logger.info("-----------------")
+            logger.info("Succesfully processed ${convertible.size} manga; Failed to process ${nonConvertible.size} manga")
             Result.ConversionComplete(convertible, nonConvertible)
         }
     } catch (e: Exception) {
-        println("Could not convert database file to Tachiyomi Json due to unknown exception")
+        logger.error("Could not convert database file to Tachiyomi Json due to unknown exception")
         e.printStackTrace()
         Result.FailedWithException(e)
     }
