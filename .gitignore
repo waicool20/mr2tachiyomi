@@ -155,7 +155,8 @@ gradle-app.setting
 
 # End of https://www.gitignore.io/api/windows,linux,macos,intellij,java,gradle
 
-mangarock.db
-output.json
-
-mr2tachiyomi.log
+*.db
+*.json
+*.log
+*.ab
+*.tar
