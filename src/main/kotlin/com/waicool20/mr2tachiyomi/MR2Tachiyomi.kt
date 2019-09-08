@@ -142,7 +142,7 @@ object MR2Tachiyomi {
             Result.ConversionComplete(convertible, nonConvertible)
         }
     } catch (e: Exception) {
-        logger.error("Could not convert database file to Tachiyomi Json due to unknown exception")
+        logger.error("Could not convert database file to Tachiyomi Json due to unknown exception", e)
         e.printStackTrace()
         Result.FailedWithException(e)
     }
