@@ -17,7 +17,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package com.waicool20.mr2tachiyomi
+package com.waicool20.mr2tachiyomi.util
 
 import org.slf4j.LoggerFactory
 import java.io.ByteArrayOutputStream
@@ -82,25 +82,6 @@ object ABUtils {
         logger.debug("chksum? %02x %02x %02x %02x".format(buffer[0], buffer[1], buffer[2], buffer[3]))
 
         return cutFile.toByteArray()
-    }
-
-    private object TarHeaderOffsets {
-        const val NAME = 0
-        const val MODE = 100
-        const val UID = 108
-        const val GID = 116
-        const val SIZE = 124
-        const val MTIME = 136
-        const val CHKSUM = 148
-        const val TYPEFLAG = 156
-        const val LINKNAME = 157
-        const val MAGIC = 257
-        const val VERSION = 263
-        const val UNAME = 265
-        const val GNAME = 297
-        const val DEVMAJOR = 329
-        const val DEVMINOR = 337
-        const val PREFIX = 345
     }
 
     /**
