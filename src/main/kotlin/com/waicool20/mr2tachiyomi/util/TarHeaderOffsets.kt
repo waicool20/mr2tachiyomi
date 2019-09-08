@@ -36,4 +36,21 @@ object TarHeaderOffsets {
     const val DEVMAJOR = 329
     const val DEVMINOR = 337
     const val PREFIX = 345
+
+    val NAME_RANGE by lazy { NAME until MODE }
+    val MODE_RANGE by lazy { MODE until UID }
+    val UID_RANGE by lazy { UID until GID }
+    val GID_RANGE by lazy { GID until SIZE }
+    val SIZE_RANGE by lazy { SIZE until MTIME }
+    val MTIME_RANGE by lazy { MTIME until CHKSUM }
+    val CHKSUM_RANGE by lazy { CHKSUM until TYPEFLAG }
+    val TYPEFLAG_RANGE by lazy { TYPEFLAG until LINKNAME }
+    val LINKNAME_RANGE by lazy { LINKNAME until MAGIC }
+    val MAGIC_RANGE by lazy { MAGIC until VERSION }
+    val VERSION_RANGE by lazy { VERSION until UNAME }
+    val UNAME_RANGE by lazy { UNAME until GNAME }
+    val GNAME_RANGE by lazy { GNAME until DEVMAJOR }
+    val DEVMAJOR_RANGE by lazy { DEVMAJOR until DEVMINOR }
+    val DEVMINOR_RANGE by lazy { DEVMINOR until PREFIX }
+    val PREFIX_RANGE by lazy { PREFIX until (PREFIX + 155) }
 }
