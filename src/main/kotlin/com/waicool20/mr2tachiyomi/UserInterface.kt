@@ -58,6 +58,10 @@ class MainView : View() {
         }
 
         runButton.setOnAction {
+            if (pathTextField.text.isEmpty()) {
+                error("Please choose your MangaRock DB or Android Backup first")
+                return@setOnAction
+            }
             chooseFile(
                 title = "Select output file",
                 filters = arrayOf(FileChooser.ExtensionFilter("Json File (*.json)", "*.json")),
