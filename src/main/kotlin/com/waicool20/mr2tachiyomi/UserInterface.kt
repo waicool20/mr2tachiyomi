@@ -45,7 +45,12 @@ class MainView : View() {
         openButton.setOnAction {
             chooseFile(
                 title = "Select mangarock.db",
-                filters = arrayOf(FileChooser.ExtensionFilter("SQLite Database (*.db)", "*.db")),
+                filters = arrayOf(
+                    FileChooser.ExtensionFilter(
+                        "SQLite Database (*.db); Android Backup (*.ab)",
+                        "*.db", "*.ab"
+                    )
+                ),
                 owner = currentWindow
             ).firstOrNull()?.let {
                 pathTextField.text = it.absolutePath

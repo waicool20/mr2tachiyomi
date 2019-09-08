@@ -25,6 +25,9 @@ import com.waicool20.mr2tachiyomi.models.database.*
 import com.waicool20.mr2tachiyomi.models.json.TachiyomiBackup
 import com.waicool20.mr2tachiyomi.models.json.TachiyomiChapter
 import com.waicool20.mr2tachiyomi.models.json.TachiyomiManga
+import com.waicool20.mr2tachiyomi.util.ABUtils
+import com.waicool20.mr2tachiyomi.util.TarHeaderOffsets
+import com.waicool20.mr2tachiyomi.util.toStringAndTrim
 import org.apache.commons.cli.DefaultParser
 import org.apache.commons.cli.HelpFormatter
 import org.apache.commons.cli.Options
@@ -37,7 +40,6 @@ import tornadofx.launch
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
-import java.nio.file.StandardOpenOption
 import kotlin.system.exitProcess
 
 private val options = Options().apply {
@@ -89,7 +91,14 @@ object MR2Tachiyomi {
 
     fun convertToTachiyomiJson(input: Path, output: Path): Result = try {
         if (Files.notExists(input)) error("File $input not found!")
-        Database.connect("jdbc:sqlite:file:$input", driver = "org.sqlite.JDBC")
+
+        val database = when {
+            "$input".endsWith(".db") -> input
+            "$input".endsWith(".ab") -> extractDbFromAb(input)
+            else -> error("Unsupported file type")
+        }
+
+        Database.connect("jdbc:sqlite:file:$database", driver = "org.sqlite.JDBC")
         transaction {
             SchemaUtils.create(
                 Favorites,
@@ -126,12 +135,7 @@ object MR2Tachiyomi {
                 jacksonObjectMapper().writerWithDefaultPrettyPrinter()
                     .writeValueAsString(TachiyomiBackup(it))
             }.let {
-                Files.write(
-                    output,
-                    it.toByteArray(),
-                    StandardOpenOption.CREATE,
-                    StandardOpenOption.TRUNCATE_EXISTING
-                )
+                Files.write(output, it.toByteArray())
             }
             logger.info("-----------------")
             logger.info("Succesfully processed ${convertible.size} manga; Failed to process ${nonConvertible.size} manga")
@@ -141,5 +145,31 @@ object MR2Tachiyomi {
         logger.error("Could not convert database file to Tachiyomi Json due to unknown exception")
         e.printStackTrace()
         Result.FailedWithException(e)
+    }
+
+    private fun extractDbFromAb(input: Path): Path {
+        val tarFile = input.resolveSibling("${input.toFile().nameWithoutExtension}.tar")
+        val db = input.resolveSibling("mangarock.db")
+        val buffer = ByteArray(512)
+
+        ABUtils.ab2tar(input, tarFile)
+        Files.newInputStream(tarFile).use { inputStream ->
+            while (inputStream.available() > 0) {
+                inputStream.read(buffer)
+                val name = buffer.sliceArray(TarHeaderOffsets.NAME_RANGE).toStringAndTrim()
+                if (name == "apps/com.notabasement.mangarock.android.lotus/db/mangarock.db") {
+                    val size = buffer.sliceArray(TarHeaderOffsets.SIZE_RANGE).toStringAndTrim().toInt(8)
+                    val blocks = if (size > 0) 1 + (size - 1) / 512 else 0
+                    Files.newOutputStream(db).use { outputStream ->
+                        repeat(blocks) {
+                            inputStream.read(buffer)
+                            outputStream.write(buffer)
+                        }
+                    }
+                    break
+                }
+            }
+        }
+        return db
     }
 }
