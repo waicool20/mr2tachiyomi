@@ -23,12 +23,14 @@ import java.io.InputStream
 import java.nio.ByteBuffer
 import java.nio.charset.Charset
 
-fun ByteBuffer.getString(length: Int,charset: Charset = Charsets.UTF_8): String {
+fun ByteBuffer.getString(length: Int, trimCNulls: Boolean = false, charset: Charset = Charsets.UTF_8): String {
     val limit = position() + length
     return duplicate().let {
         it.limit(limit)
-        charset.decode(it).toString()
-    }.also { position(limit) }
+        charset.decode(it)
+    }.let { buffer ->
+        if (trimCNulls) buffer.trim { it == '\u0000' } else buffer
+    }.toString().also { position(limit) }
 }
 
 fun ByteBuffer.putInputStreamAndFlip(inputStream: InputStream, length: Int = remaining()) {
