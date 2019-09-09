@@ -21,11 +21,13 @@ package com.waicool20.mr2tachiyomi.util
 
 import org.slf4j.LoggerFactory
 import java.io.ByteArrayOutputStream
+import java.io.InputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
+import kotlin.math.min
 
 object ABUtils {
     class EncryptedBackupUnsupportedException : Exception("Only unencrypted backups are supported")
@@ -34,7 +36,7 @@ object ABUtils {
 
     fun ab2tar(input: Path): ByteArray {
         logger.debug("Android Backup to Tar Archive, input file: ${input.toAbsolutePath()}")
-        return correctFile(cutFile(Files.readAllBytes(input)))
+        return correctFile(cutFile(Files.newInputStream(input)))
     }
 
     fun ab2tar(input: Path, output: Path) {
@@ -44,19 +46,18 @@ object ABUtils {
     /**
      * Original C implementation over here: https://github.com/floe/helium_ab2tar/blob/master/ab2tar_cut.c
      */
-    private fun cutFile(input: ByteArray): ByteArray {
-        val buffer = ByteArray(65536)
-        val inputBytes = ByteBuffer.wrap(input).order(ByteOrder.LITTLE_ENDIAN)
+    private fun cutFile(input: InputStream): ByteArray {
+        val byteBuffer = ByteBuffer.allocate(65536).order(ByteOrder.LITTLE_ENDIAN)
 
-        inputBytes.get(buffer, 0, 24)
-        logger.debug("Magic: ${String(buffer, 0, 15).trim()}")
-        logger.debug("Format: ${String(buffer, 15, 2).trim()}")
-        logger.debug("Compression Flag: ${String(buffer, 17, 2).trim()}")
-        val encryption = String(buffer, 19, 4).trim()
+        byteBuffer.putInputStreamAndFlip(input, 26)
+        logger.debug("Magic: ${byteBuffer.getString(15).trim()}")
+        logger.debug("Format: ${byteBuffer.getString(2).trim()}")
+        logger.debug("Compression Flag: ${byteBuffer.getString(2).trim()}")
+        val encryption = byteBuffer.getString(5).trim()
         logger.debug("Encryption: $encryption")
         if (encryption != "none") throw EncryptedBackupUnsupportedException()
 
-        logger.debug("head? %02x %02x".format(inputBytes.get(), inputBytes.get()))
+        logger.debug("head? %02x %02x".format(byteBuffer.get(), byteBuffer.get()))
 
         var type = 0
         var size: Int
@@ -64,22 +65,29 @@ object ABUtils {
 
         val cutFile = ByteArrayOutputStream()
         val blockDebug = StringBuilder("blocks? ")
-        while (type == 0 && inputBytes.hasRemaining()) {
-            type = inputBytes.get().toInt()
-            size = inputBytes.short.toUShort().toInt()
-            compl = inputBytes.short.toUShort().toInt()
+        while (type == 0 && input.available() > 0) {
+            byteBuffer.clear()
+            byteBuffer.putInputStreamAndFlip(input, 5)
+            type = byteBuffer.get().toInt()
+            size = byteBuffer.short.toUShort().toInt()
+            compl = byteBuffer.short.toUShort().toInt()
 
             if (size + compl != 65535) blockDebug.append("@")
             blockDebug.append("%02x (0x%04x) ".format(type, size))
 
-            repeat(size) {
-                cutFile.write(inputBytes.get().toInt())
+            while (size > 0) {
+                byteBuffer.clear()
+                val bytes = min(byteBuffer.capacity(), size)
+                byteBuffer.putInputStreamAndFlip(input, bytes)
+                cutFile.write(byteBuffer.array(), 0, byteBuffer.limit())
+                size -= bytes
             }
         }
         logger.debug(blockDebug.toString())
 
-        inputBytes.get(buffer, 0, 4)
-        logger.debug("chksum? %02x %02x %02x %02x".format(buffer[0], buffer[1], buffer[2], buffer[3]))
+        byteBuffer.clear()
+        byteBuffer.putInputStreamAndFlip(input, 4)
+        logger.debug("chksum? %02x %02x %02x %02x".format(byteBuffer.get(), byteBuffer.get(), byteBuffer.get(), byteBuffer.get()))
 
         return cutFile.toByteArray()
     }
