@@ -132,7 +132,7 @@ object MR2Tachiyomi {
                         }
                 ).also { logger.info("Processed $fav") }
             }.let {
-                jacksonObjectMapper().writerWithDefaultPrettyPrinter().writeValue(output.toFile(), it)
+                jacksonObjectMapper().writerWithDefaultPrettyPrinter().writeValue(output.toFile(), TachiyomiBackup(it))
             }
             logger.info("-----------------")
             logger.info("Succesfully processed ${convertible.size} manga; Failed to process ${nonConvertible.size} manga")
