@@ -13,6 +13,7 @@ Currently the steps are very technical and might be complicated for the typical 
 Pre-requisites: 
  - [Java 8](https://www.oracle.com/java/technologies/jdk8-downloads.html)
  - [MR2Tachiyomi Application Jar](https://github.com/waicool20/mr2tachiyomi/releases)
+ - [Tachiyomi](https://github.com/inorichi/tachiyomi/releases) and extensions (Download in-app)
  
 ## Method 1: Using mangarock.db (Rooted devices only)
 
