@@ -26,7 +26,7 @@ import org.jetbrains.exposed.dao.IntEntityClass
 import org.jetbrains.exposed.dao.IntIdTable
 
 object Favorites : IntIdTable(columnName = "manga_id") {
-    val author = varchar("author", 1024)
+    val author = varchar("author", 1024).nullable()
     val lastRead = long("last_read")
     val lastSync = long("last_sync")
     val mangaAliases = varchar("manga_aliases", 1024)
@@ -41,7 +41,7 @@ object Favorites : IntIdTable(columnName = "manga_id") {
 class Favorite(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<Favorite>(Favorites)
 
-    val author by Favorites.author
+    val author by lazy { Favorites.author.lookup() ?: "Unknown Author" }
     val lastRead by Favorites.lastRead
     val lastSync by Favorites.lastSync
     val mangaAliases by Favorites.mangaAliases
