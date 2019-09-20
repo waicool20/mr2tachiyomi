@@ -64,11 +64,14 @@ class MainView : View() {
             }
             chooseFile(
                 title = "Select output file",
-                filters = arrayOf(FileChooser.ExtensionFilter("Json File (*.json)", "*.json")),
+                filters = arrayOf(
+                    FileChooser.ExtensionFilter("Json File (*.json)", "*.json"),
+                    FileChooser.ExtensionFilter("Csv File (*.csv)", "*.csv")
+                ),
                 owner = currentWindow,
                 mode = FileChooserMode.Save
             ).firstOrNull()?.let {
-                when (val results = MR2Tachiyomi.convertToTachiyomiJson(Paths.get(pathTextField.text), it.toPath())) {
+                when (val results = MR2Tachiyomi.convert(Paths.get(pathTextField.text), it.toPath())) {
                     is MR2Tachiyomi.Result.ConversionComplete -> {
                         information(
                             "Conversion complete",
@@ -80,7 +83,9 @@ class MainView : View() {
                     }
                     is MR2Tachiyomi.Result.FailedWithException -> error(
                         "Conversion failed",
-                        "See logs for more information"
+                        """
+                            |Error: ${results.exception.message}
+                            |See logs for more information""".trimMargin()
                     )
                 }
             }
