@@ -89,59 +89,61 @@ object MR2Tachiyomi {
         class FailedWithException(val exception: Exception) : Result()
     }
 
-    fun convertToTachiyomiJson(input: Path, output: Path): Result = try {
-        if (Files.notExists(input)) error("File $input not found!")
+    fun convertToTachiyomiJson(input: Path, output: Path): Result {
+        return try {
+            if (Files.notExists(input)) error("File $input not found!")
 
-        val database = when {
-            "$input".endsWith(".db") -> input
-            "$input".endsWith(".ab") -> extractDbFromAb(input)
-            else -> error("Unsupported file type")
-        }
+            val database = when {
+                "$input".endsWith(".db") -> input
+                "$input".endsWith(".ab") -> extractDbFromAb(input)
+                else -> error("Unsupported file type")
+            }
 
-        Database.connect("jdbc:sqlite:file:$database", driver = "org.sqlite.JDBC")
-        transaction {
-            SchemaUtils.create(
-                Favorites,
-                MangaChapters,
-                MangaChapterLocals
-            )
+            Database.connect("jdbc:sqlite:file:$database", driver = "org.sqlite.JDBC")
+            transaction {
+                SchemaUtils.create(
+                    Favorites,
+                    MangaChapters,
+                    MangaChapterLocals
+                )
 
-            val (convertible, nonConvertible) = Favorite.all().partition {
-                try {
-                    it.source
-                    true
-                } catch (e: Source.UnsupportedSourceException) {
-                    logger.warn("Cannot process manga ( $it ): ${e.message}")
-                    false
+                val (convertible, nonConvertible) = Favorite.all().partition {
+                    try {
+                        it.source
+                        true
+                    } catch (e: Source.UnsupportedSourceException) {
+                        logger.warn("Cannot process manga ( $it ): ${e.message}")
+                        false
+                    }
                 }
-            }
 
-            logger.info("-----------------")
+                logger.info("-----------------")
 
-            convertible.map { fav ->
-                TachiyomiManga(
-                    fav.source.getMangaUrl(),
-                    fav.mangaName,
-                    fav.source.TachiyomiId,
-                    chapters = MangaChapter.find { MangaChapters.mangaId eq fav.id.value }
-                        .map {
-                            TachiyomiChapter(
-                                fav.source.getChapterUrl(it),
-                                it.local?.read ?: 0
-                            )
-                        }
-                ).also { logger.info("Processed $fav") }
-            }.let {
-                jacksonObjectMapper().writerWithDefaultPrettyPrinter().writeValue(output.toFile(), TachiyomiBackup(it))
+                convertible.map { fav ->
+                    TachiyomiManga(
+                        fav.source.getMangaUrl(),
+                        fav.mangaName,
+                        fav.source.TachiyomiId,
+                        chapters = MangaChapter.find { MangaChapters.mangaId eq fav.id.value }
+                            .map {
+                                TachiyomiChapter(
+                                    fav.source.getChapterUrl(it),
+                                    it.local?.read ?: 0
+                                )
+                            }
+                    ).also { logger.info("Processed $fav") }
+                }.let {
+                    jacksonObjectMapper().writerWithDefaultPrettyPrinter().writeValue(output.toFile(), TachiyomiBackup(it))
+                }
+                logger.info("-----------------")
+                logger.info("Succesfully processed ${convertible.size} manga; Failed to process ${nonConvertible.size} manga")
+                Result.ConversionComplete(convertible, nonConvertible)
             }
-            logger.info("-----------------")
-            logger.info("Succesfully processed ${convertible.size} manga; Failed to process ${nonConvertible.size} manga")
-            Result.ConversionComplete(convertible, nonConvertible)
+        } catch (e: Exception) {
+            logger.error("Could not convert database file to Tachiyomi Json due to unknown exception", e)
+            e.printStackTrace()
+            Result.FailedWithException(e)
         }
-    } catch (e: Exception) {
-        logger.error("Could not convert database file to Tachiyomi Json due to unknown exception", e)
-        e.printStackTrace()
-        Result.FailedWithException(e)
     }
 
     private fun extractDbFromAb(input: Path): Path {
