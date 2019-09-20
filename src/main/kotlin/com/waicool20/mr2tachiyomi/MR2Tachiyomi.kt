@@ -24,9 +24,9 @@ import com.waicool20.mr2tachiyomi.converters.CsvConverter
 import com.waicool20.mr2tachiyomi.converters.JsonConverter
 import com.waicool20.mr2tachiyomi.util.ABUtils
 import com.waicool20.mr2tachiyomi.util.TarHeaderOffsets
+import com.waicool20.mr2tachiyomi.util.printHelp
 import com.waicool20.mr2tachiyomi.util.toStringAndTrim
 import org.apache.commons.cli.DefaultParser
-import org.apache.commons.cli.HelpFormatter
 import org.apache.commons.cli.Options
 import org.apache.commons.cli.ParseException
 import org.slf4j.LoggerFactory
@@ -37,6 +37,7 @@ import java.nio.file.Path
 import java.nio.file.Paths
 import kotlin.system.exitProcess
 
+private const val CMD = "java -jar mr2tachiyomi.jar"
 private val options = Options().apply {
     addOption("i", "input", true, "input file to convert")
     addOption("o", "output", true, "output file")
@@ -57,7 +58,7 @@ fun main(args: Array<String>) {
     try {
         val command = DefaultParser().parse(options, args)
         if (command.hasOption('h')) {
-            printHelp(options)
+            options.printHelp(CMD)
             return
         }
 
@@ -65,15 +66,10 @@ fun main(args: Array<String>) {
         output = Paths.get(command.getOptionValue('o') ?: "output.json")
     } catch (e: ParseException) {
         logger.error("Failed to parse args: " + e.message)
-        printHelp(options)
+        options.printHelp(CMD)
         exitProcess(1)
     }
     MR2Tachiyomi.convert(input, output)
-}
-
-fun printHelp(options: Options) {
-    val formatter = HelpFormatter()
-    formatter.printHelp("mr2tachiyomi", options)
 }
 
 object MR2Tachiyomi {
