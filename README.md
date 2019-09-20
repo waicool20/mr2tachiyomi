@@ -21,7 +21,7 @@ Pre-requisites:
     - File is located in the directory `root:/data/data/com.notabasement.mangarock.android.lotus/databases`  
     
 2. Run MR2Tachiyomi Application Jar (Double click the jar) and open the copied `mangarock.db` file.  
-Click `Run` and choose a save location for the output file.
+Click `Run` and choose a save location for the output file (Read below for more details).
 
 Optionally for those wanting to use the command line instead of GUI: 
 > java -jar mr2tachiyomi.jar -i /path/to/mangarock.db -o /path/to/output.json
@@ -39,7 +39,7 @@ Note: MangaRock or other relevant Tachiyomi source extensions must be installed,
 to your pc
 
 3. Run MR2Tachiyomi Application Jar (Double click the jar) and open the copied `com.notabasement.mangarock.android.lotus.ab` file.  
-Click `Run` and choose a save location for the output file. 
+Click `Run` and choose a save location for the output file (Read below for more details). 
 
 Optionally for those wanting to use the command line instead of GUI: 
 > java -jar mr2tachiyomi.jar -i /path/to/androidbackup.ab -o /path/to/output.json
@@ -48,11 +48,17 @@ Optionally for those wanting to use the command line instead of GUI:
 using the backup restore feature in the settings menu. 
 Note: MangaRock or other relevant Tachiyomi source extensions must be installed, or else the import will fail. 
 
+## File output
+
+Change the output file name to get the desired format:
+
+- Tachiyomi Backup Json -> `output.json`
+- CSV List File -> `output.csv` or `output.txt`
+
 ## TODO
 
-- CSV output 
 - Other sources that MangaRock uses
 
 ## Credits
 
-- Original C implementation for Android Backup to Tar algorithm: https://github.com/floe/helium_ab2tar
+- Original C reference implementation for Android Backup to Tar algorithm: https://github.com/floe/helium_ab2tar
