@@ -19,6 +19,7 @@
 
 package com.waicool20.mr2tachiyomi
 
+import com.waicool20.mr2tachiyomi.converters.Converter
 import javafx.scene.control.Button
 import javafx.scene.control.TextField
 import javafx.scene.layout.HBox
@@ -64,15 +65,12 @@ class MainView : View() {
             }
             chooseFile(
                 title = "Select output file",
-                filters = arrayOf(
-                    FileChooser.ExtensionFilter("Json File (*.json)", "*.json"),
-                    FileChooser.ExtensionFilter("Csv File (*.csv)", "*.csv")
-                ),
+                filters = MR2Tachiyomi.converters.map { it.extensionFilter }.toTypedArray(),
                 owner = currentWindow,
                 mode = FileChooserMode.Save
             ).firstOrNull()?.let {
                 when (val results = MR2Tachiyomi.convert(Paths.get(pathTextField.text), it.toPath())) {
-                    is MR2Tachiyomi.Result.ConversionComplete -> {
+                    is Converter.Result.ConversionComplete -> {
                         information(
                             "Conversion complete",
                             """
@@ -81,7 +79,7 @@ class MainView : View() {
                                 |See logs for more information""".trimMargin()
                         )
                     }
-                    is MR2Tachiyomi.Result.FailedWithException -> error(
+                    is Converter.Result.FailedWithException -> error(
                         "Conversion failed",
                         """
                             |Error: ${results.exception.message}

@@ -19,14 +19,9 @@
 
 package com.waicool20.mr2tachiyomi
 
-import com.fasterxml.jackson.dataformat.csv.CsvMapper
-import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.waicool20.mr2tachiyomi.models.Source
-import com.waicool20.mr2tachiyomi.models.csv.CsvManga
-import com.waicool20.mr2tachiyomi.models.database.*
-import com.waicool20.mr2tachiyomi.models.json.TachiyomiBackup
-import com.waicool20.mr2tachiyomi.models.json.TachiyomiChapter
-import com.waicool20.mr2tachiyomi.models.json.TachiyomiManga
+import com.waicool20.mr2tachiyomi.converters.Converter
+import com.waicool20.mr2tachiyomi.converters.CsvConverter
+import com.waicool20.mr2tachiyomi.converters.JsonConverter
 import com.waicool20.mr2tachiyomi.util.ABUtils
 import com.waicool20.mr2tachiyomi.util.TarHeaderOffsets
 import com.waicool20.mr2tachiyomi.util.toStringAndTrim
@@ -34,9 +29,6 @@ import org.apache.commons.cli.DefaultParser
 import org.apache.commons.cli.HelpFormatter
 import org.apache.commons.cli.Options
 import org.apache.commons.cli.ParseException
-import org.jetbrains.exposed.sql.Database
-import org.jetbrains.exposed.sql.SchemaUtils
-import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.LoggerFactory
 import tornadofx.launch
 import java.io.FileNotFoundException
@@ -86,102 +78,27 @@ fun printHelp(options: Options) {
 
 object MR2Tachiyomi {
     private val logger = LoggerFactory.getLogger(javaClass)
+    val converters = listOf(JsonConverter, CsvConverter)
 
-    sealed class Result {
-        class ConversionComplete(val success: List<Favorite>, val failed: List<Favorite>) : Result()
-        class FailedWithException(val exception: Exception) : Result()
-    }
-
-    class UnsupportedFileFormatException(format: String) : Exception("Unsupported File Format: $format")
-
-    fun convert(input: Path, output: Path): Result {
+    fun convert(input: Path, output: Path): Converter.Result {
+        val inputExtension = "$input".takeLastWhile { it != '.' }
+        val outputExtension = "$output".takeLastWhile { it != '.' }
         return try {
-            if (Files.notExists(input)) return Result.FailedWithException(FileNotFoundException("File $input not found!"))
+            if (Files.notExists(input)) return Converter.Result.FailedWithException(FileNotFoundException("File $input not found!"))
 
-            val database = when {
-                "$input".endsWith(".db") -> input
-                "$input".endsWith(".ab") -> extractDbFromAb(input)
-                else -> throw UnsupportedFileFormatException("$input".takeLastWhile { it != '.' })
+            val database = when(inputExtension) {
+                "db" -> input
+                "ab" -> extractDbFromAb(input)
+                else -> throw UnsupportedFileFormatException(inputExtension)
             }
 
-            when (val extension = "$output".takeLastWhile { it != '.' }) {
-                "json" -> convertToTachiyomiJson(database, output)
-                "csv" -> convertToCsv(database, output)
-                else -> throw UnsupportedFileFormatException(extension)
-            }
+            converters.find { it.fileExtensions.contains(outputExtension) }
+                ?.convert(database, output)
+                ?: throw UnsupportedFileFormatException(outputExtension)
         } catch (e: Exception) {
-            logger.error("Could not convert database file to due to unknown exception", e)
+            logger.error("Could not convert database file to $outputExtension due to unknown exception", e)
             e.printStackTrace()
-            Result.FailedWithException(e)
-        }
-    }
-
-    private fun convertToTachiyomiJson(database: Path, output: Path): Result {
-        Database.connect("jdbc:sqlite:file:$database", driver = "org.sqlite.JDBC")
-        return transaction {
-            SchemaUtils.create(
-                Favorites,
-                MangaChapters,
-                MangaChapterLocals
-            )
-
-            val (convertible, nonConvertible) = Favorite.all().partition {
-                try {
-                    it.source
-                    true
-                } catch (e: Source.UnsupportedSourceException) {
-                    logger.warn("Cannot process manga ( $it ): ${e.message}")
-                    false
-                }
-            }
-
-            logger.info("-----------------")
-
-            convertible.map { fav ->
-                TachiyomiManga(
-                    fav.source.getMangaUrl(),
-                    fav.mangaName,
-                    fav.source.TachiyomiId,
-                    chapters = MangaChapter.find { MangaChapters.mangaId eq fav.id.value }
-                        .map {
-                            TachiyomiChapter(
-                                fav.source.getChapterUrl(it),
-                                it.local?.read ?: 0
-                            )
-                        }
-                ).also { logger.info("Processed $fav") }
-            }.let {
-                jacksonObjectMapper().writerWithDefaultPrettyPrinter()
-                    .writeValue(output.toFile(), TachiyomiBackup(it))
-            }
-            logger.info("-----------------")
-            logger.info("Succesfully processed ${convertible.size} manga; Failed to process ${nonConvertible.size} manga")
-            Result.ConversionComplete(convertible, nonConvertible)
-        }
-    }
-
-    private fun convertToCsv(database: Path, output: Path): Result {
-        Database.connect("jdbc:sqlite:file:$database", driver = "org.sqlite.JDBC")
-        return transaction {
-            SchemaUtils.create(
-                Favorites,
-                MangaChapters,
-                MangaChapterLocals
-            )
-            val favs = Favorite.all().toList()
-            favs.map { fav ->
-                val (read, unread) = MangaChapter.find { MangaChapters.mangaId eq fav.id.value }
-                    .partition { it.local?.read == 1 }
-                CsvManga(fav.mangaName, fav.author, read, unread)
-                    .also { logger.info("Processed $fav") }
-            }.let {
-                val mapper = CsvMapper()
-                val schema = mapper.schemaFor(CsvManga::class.java).withHeader()
-                mapper.writer(schema).writeValue(output.toFile(), it)
-            }
-            logger.info("-----------------")
-            logger.info("Succesfully processed ${favs.size} manga")
-            Result.ConversionComplete(favs, emptyList())
+            Converter.Result.FailedWithException(e)
         }
     }
 
