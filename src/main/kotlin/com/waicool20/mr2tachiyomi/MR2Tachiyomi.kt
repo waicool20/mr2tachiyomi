@@ -19,29 +19,25 @@
 
 package com.waicool20.mr2tachiyomi
 
-import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.waicool20.mr2tachiyomi.models.Source
-import com.waicool20.mr2tachiyomi.models.database.*
-import com.waicool20.mr2tachiyomi.models.json.TachiyomiBackup
-import com.waicool20.mr2tachiyomi.models.json.TachiyomiChapter
-import com.waicool20.mr2tachiyomi.models.json.TachiyomiManga
+import com.waicool20.mr2tachiyomi.converters.Converter
+import com.waicool20.mr2tachiyomi.converters.CsvConverter
+import com.waicool20.mr2tachiyomi.converters.JsonConverter
 import com.waicool20.mr2tachiyomi.util.ABUtils
 import com.waicool20.mr2tachiyomi.util.TarHeaderOffsets
+import com.waicool20.mr2tachiyomi.util.printHelp
 import com.waicool20.mr2tachiyomi.util.toStringAndTrim
 import org.apache.commons.cli.DefaultParser
-import org.apache.commons.cli.HelpFormatter
 import org.apache.commons.cli.Options
 import org.apache.commons.cli.ParseException
-import org.jetbrains.exposed.sql.Database
-import org.jetbrains.exposed.sql.SchemaUtils
-import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.LoggerFactory
 import tornadofx.launch
+import java.io.FileNotFoundException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import kotlin.system.exitProcess
 
+private const val CMD = "java -jar mr2tachiyomi.jar"
 private val options = Options().apply {
     addOption("i", "input", true, "input file to convert")
     addOption("o", "output", true, "output file")
@@ -62,7 +58,7 @@ fun main(args: Array<String>) {
     try {
         val command = DefaultParser().parse(options, args)
         if (command.hasOption('h')) {
-            printHelp(options)
+            options.printHelp(CMD)
             return
         }
 
@@ -70,78 +66,36 @@ fun main(args: Array<String>) {
         output = Paths.get(command.getOptionValue('o') ?: "output.json")
     } catch (e: ParseException) {
         logger.error("Failed to parse args: " + e.message)
-        printHelp(options)
+        options.printHelp(CMD)
         exitProcess(1)
     }
-    MR2Tachiyomi.convertToTachiyomiJson(input, output)
-}
-
-fun printHelp(options: Options) {
-    val formatter = HelpFormatter()
-    formatter.printHelp("mr2tachiyomi", options)
+    MR2Tachiyomi.convert(input, output)
 }
 
 object MR2Tachiyomi {
     private val logger = LoggerFactory.getLogger(javaClass)
+    val converters = listOf(JsonConverter, CsvConverter)
 
-    sealed class Result {
-        class ConversionComplete(val success: List<Favorite>, val failed: List<Favorite>) : Result()
-        class FailedWithException(val exception: Exception) : Result()
-    }
+    fun convert(input: Path, output: Path): Converter.Result {
+        val inputExtension = "$input".takeLastWhile { it != '.' }
+        val outputExtension = "$output".takeLastWhile { it != '.' }
+        return try {
+            if (Files.notExists(input)) return Converter.Result.FailedWithException(FileNotFoundException("File $input not found!"))
 
-    fun convertToTachiyomiJson(input: Path, output: Path): Result = try {
-        if (Files.notExists(input)) error("File $input not found!")
-
-        val database = when {
-            "$input".endsWith(".db") -> input
-            "$input".endsWith(".ab") -> extractDbFromAb(input)
-            else -> error("Unsupported file type")
-        }
-
-        Database.connect("jdbc:sqlite:file:$database", driver = "org.sqlite.JDBC")
-        transaction {
-            SchemaUtils.create(
-                Favorites,
-                MangaChapters,
-                MangaChapterLocals
-            )
-
-            val (convertible, nonConvertible) = Favorite.all().partition {
-                try {
-                    it.source
-                    true
-                } catch (e: Source.UnsupportedSourceException) {
-                    logger.warn("Cannot process manga ( $it ): ${e.message}")
-                    false
-                }
+            val database = when(inputExtension) {
+                "db" -> input
+                "ab" -> extractDbFromAb(input)
+                else -> throw UnsupportedFileFormatException(inputExtension)
             }
 
-            logger.info("-----------------")
-
-            convertible.map { fav ->
-                TachiyomiManga(
-                    fav.source.getMangaUrl(),
-                    fav.mangaName,
-                    fav.source.TachiyomiId,
-                    chapters = MangaChapter.find { MangaChapters.mangaId eq fav.id.value }
-                        .map {
-                            TachiyomiChapter(
-                                fav.source.getChapterUrl(it),
-                                it.local?.read ?: 0
-                            )
-                        }
-                ).also { logger.info("Processed $fav") }
-            }.let {
-                jacksonObjectMapper().writerWithDefaultPrettyPrinter().writeValue(output.toFile(), TachiyomiBackup(it))
-            }
-            logger.info("-----------------")
-            logger.info("Succesfully processed ${convertible.size} manga; Failed to process ${nonConvertible.size} manga")
-            Result.ConversionComplete(convertible, nonConvertible)
+            converters.find { it.fileExtensions.contains(outputExtension) }
+                ?.convert(database, output)
+                ?: throw UnsupportedFileFormatException(outputExtension)
+        } catch (e: Exception) {
+            logger.error("Could not convert database file to $outputExtension due to unknown exception", e)
+            e.printStackTrace()
+            Converter.Result.FailedWithException(e)
         }
-    } catch (e: Exception) {
-        logger.error("Could not convert database file to Tachiyomi Json due to unknown exception", e)
-        e.printStackTrace()
-        Result.FailedWithException(e)
     }
 
     private fun extractDbFromAb(input: Path): Path {
