@@ -104,11 +104,12 @@ object MR2Tachiyomi {
         val buffer = ByteArray(512)
 
         ABUtils.ab2tar(input, tarFile)
+        val dbRegex = Regex("apps/com\\.notabasement\\.mangarock.+?/db/mangarock\\.db")
         Files.newInputStream(tarFile).use { inputStream ->
             while (inputStream.available() > 0) {
                 inputStream.read(buffer)
                 val name = buffer.sliceArray(TarHeaderOffsets.NAME_RANGE).toStringAndTrim()
-                if (name == "apps/com.notabasement.mangarock.android.lotus/db/mangarock.db") {
+                if (name.matches(dbRegex)) {
                     val size = buffer.sliceArray(TarHeaderOffsets.SIZE_RANGE).toStringAndTrim().toInt(8)
                     val blocks = if (size > 0) 1 + (size - 1) / 512 else 0
                     Files.newOutputStream(db).use { outputStream ->
