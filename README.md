@@ -55,9 +55,19 @@ Change the output file name to get the desired format:
 - Tachiyomi Backup Json -> `output.json`
 - CSV List File -> `output.csv` or `output.txt`
 
-## TODO
+## Troubleshooting
 
-- Other sources that MangaRock uses
+```
+Having problems with Helium on PC?
+
+Try using the Chromium extension instead
+```
+
+```
+I'm getting some kind of SQLite error!
+
+The tool decodes a mangarock.db file out of the backup ab file, if it's 0kb in size then you have a bad backup.
+```
 
 ## Credits
 
