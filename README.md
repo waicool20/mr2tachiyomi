@@ -11,7 +11,7 @@ Currently only supports the sources MangaRock, MangaEden, MangaReader.
 Currently the steps are very technical and might be complicated for the typical user, be aware!
 
 Pre-requisites: 
- - [Java 8](https://www.oracle.com/java/technologies/jdk8-downloads.html)
+ - [Java 8](https://www.oracle.com/java/technologies/javase/javase-jdk8-downloads.html)
  - [MR2Tachiyomi Application Jar](https://github.com/waicool20/mr2tachiyomi/releases)
  - [Tachiyomi](https://github.com/inorichi/tachiyomi/releases) and extensions (Download in-app)
  
